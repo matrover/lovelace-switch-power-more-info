@@ -4,7 +4,8 @@ Show the live power usage for `switch.*` entities directly in the Home Assistant
 
 This is a Lovelace dashboard resource for HACS. After installation it automatically adds a small power badge below the switch control when the switch has a matching power sensor.
 
-![Switch Power More Info preview](docs/preview.svg)
+<img width="583" height="710" alt="image" src="https://github.com/user-attachments/assets/63a34249-9765-4f7e-9d08-bc57b963d38b" />
+
 
 ## Features
 
