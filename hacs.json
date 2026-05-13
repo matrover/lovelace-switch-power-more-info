@@ -1,0 +1,6 @@
+{
+  "name": "Switch Power More Info",
+  "filename": "switch-power-more-info.js",
+  "homeassistant": "2024.6.0",
+  "hacs": "2.0.0"
+}

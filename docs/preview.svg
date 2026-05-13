@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="620" viewBox="0 0 900 620" role="img" aria-label="Switch Power More Info preview">
+  <rect width="900" height="620" fill="#101010"/>
+  <rect x="70" y="34" width="760" height="552" rx="28" fill="#1c1c1c"/>
+  <text x="126" y="78" fill="#aaa" font-family="Arial, sans-serif" font-size="18">Garden</text>
+  <text x="126" y="108" fill="#eee" font-family="Arial, sans-serif" font-size="28" font-weight="700">Outdoor switch</text>
+  <text x="450" y="180" text-anchor="middle" fill="#eee" font-family="Arial, sans-serif" font-size="54">On</text>
+  <text x="450" y="220" text-anchor="middle" fill="#ccc" font-family="Arial, sans-serif" font-size="22" font-weight="700">38 minutes ago</text>
+
+  <rect x="350" y="285" width="200" height="250" rx="58" fill="#4e4321"/>
+  <rect x="360" y="295" width="180" height="205" rx="48" fill="#ffc844"/>
+  <text x="450" y="402" text-anchor="middle" fill="#fff" font-family="Arial, sans-serif" font-size="34">⏻</text>
+
+  <rect x="374" y="536" width="152" height="62" rx="12" fill="#3f3f3f"/>
+  <text x="414" y="566" fill="#18e000" font-family="Arial, sans-serif" font-size="30">▾</text>
+  <text x="450" y="558" fill="#b8b8b8" font-family="Arial, sans-serif" font-size="15" font-weight="700">Power</text>
+  <text x="450" y="582" fill="#fff" font-family="Arial, sans-serif" font-size="22" font-weight="700">16 W</text>
+
+  <circle cx="104" cy="74" r="16" fill="#dcdcdc"/>
+  <rect x="790" y="60" width="22" height="22" rx="3" fill="#dcdcdc"/>
+</svg>
