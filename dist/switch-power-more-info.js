@@ -1,5 +1,5 @@
 (() => {
-  const VERSION = "0.1.0";
+  const VERSION = "0.2.0";
   const BADGE_ID = "switch-power-more-info-badge";
   const INTERVAL_KEY = "__switchPowerMoreInfoInterval";
   const STATE_KEY = "__switchPowerMoreInfoEntity";
@@ -7,6 +7,24 @@
 
   const language = (navigator.language || "en").toLowerCase();
   const label = language.startsWith("nl") ? "Stroom" : "Power";
+  const SKIPPED_DOMAINS = new Set([
+    "sensor",
+    "binary_sensor",
+    "person",
+    "zone",
+    "sun",
+    "weather",
+    "calendar",
+    "camera",
+    "event",
+    "update"
+  ]);
+
+  const entityDomain = (entityId) => String(entityId || "").split(".")[0] || "";
+  const isPowerTargetEntity = (entityId) => {
+    const domain = entityDomain(entityId);
+    return Boolean(domain && entityId?.includes(".") && !SKIPPED_DOMAINS.has(domain));
+  };
 
   const walk = (root, visit) => {
     if (!root) return null;
@@ -70,7 +88,7 @@
     return candidates[0] || null;
   };
 
-  const findSwitchHost = (hass, popup) => {
+  const findEntityHost = (hass, popup) => {
     const found = [];
     const scope = popup?.el || document.body;
 
@@ -78,13 +96,13 @@
       const entityId = entityOf(el);
       const rect = rectOf(el);
       const name = (el.localName || "").toLowerCase();
-      const likelySwitchControl =
+      const likelyDeviceControl =
         name.includes("more-info") ||
-        name.includes("state-switch") ||
-        name.includes("control-switch") ||
+        name.includes("state-") ||
+        name.includes("control-") ||
         el.stateObj;
 
-      if (entityId?.startsWith("switch.") && rect && likelySwitchControl) {
+      if (isPowerTargetEntity(entityId) && rect && likelyDeviceControl) {
         found.push({ el, id: entityId, rect, area: rect.width * rect.height });
       }
       return null;
@@ -95,7 +113,7 @@
 
     const dialogText = textDeep(scope).toLowerCase();
     const id = Object.values(hass.states).find((state) => {
-      if (!state.entity_id.startsWith("switch.")) return false;
+      if (!isPowerTargetEntity(state.entity_id)) return false;
       const friendly = String(state.attributes?.friendly_name || "").toLowerCase();
       return friendly && dialogText.includes(friendly);
     })?.entity_id || null;
@@ -134,8 +152,8 @@
     return deviceClass === "power" || unit === "w" || unit === "kw";
   };
 
-  const pickPowerSensor = (hass, switchState) => {
-    const base = switchState.entity_id.slice("switch.".length);
+  const pickPowerSensor = (hass, entityState) => {
+    const base = entityState.entity_id.replace(/^[^.]+\./, "");
     const preferred = [
       `sensor.${base}_electric_consumption_w`,
       `sensor.${base}_power`,
@@ -156,11 +174,11 @@
     if (prefixed) return prefixed;
 
     const code = base.split("_").slice(-1)[0]?.toLowerCase();
-    const switchName = String(switchState.attributes?.friendly_name || "").toLowerCase();
+    const entityName = String(entityState.attributes?.friendly_name || "").toLowerCase();
 
     return sensors.find((state) => {
       const name = String(state.attributes?.friendly_name || "").toLowerCase();
-      return (code && name.includes(code)) || (switchName && name.startsWith(switchName));
+      return (code && name.includes(code)) || (entityName && name.startsWith(entityName));
     }) || null;
   };
 
@@ -282,13 +300,13 @@
     const popup = findPopup();
     if (!hass || !popup) return removeBadges(null);
 
-    const switchHost = findSwitchHost(hass, popup);
-    const entityId = window[STATE_KEY] || switchHost?.id;
-    if (!entityId?.startsWith("switch.")) return removeBadges(null);
+    const entityHost = findEntityHost(hass, popup);
+    const entityId = window[STATE_KEY] || entityHost?.id;
+    if (!isPowerTargetEntity(entityId)) return removeBadges(null);
 
     window[STATE_KEY] = entityId;
-    const switchState = hass.states[entityId];
-    const powerSensor = switchState ? pickPowerSensor(hass, switchState) : null;
+    const entityState = hass.states[entityId];
+    const powerSensor = entityState ? pickPowerSensor(hass, entityState) : null;
     const text = powerSensor ? formatPower(powerSensor) : null;
     if (!text) return removeBadges(null);
 
@@ -303,7 +321,7 @@
 
   window.addEventListener("hass-more-info", (event) => {
     const id = event.detail?.entityId || event.detail?.entity_id || null;
-    if (id?.startsWith("switch.")) window[STATE_KEY] = id;
+    if (isPowerTargetEntity(id)) window[STATE_KEY] = id;
 
     window.setTimeout(render, 0);
     window.setTimeout(render, 100);
@@ -324,5 +342,5 @@
   window[INTERVAL_KEY] = window.setInterval(render, 250);
   render();
 
-  console.info(`Switch Power More Info ${VERSION} loaded`);
+  console.info(`Power More Info ${VERSION} loaded`);
 })();

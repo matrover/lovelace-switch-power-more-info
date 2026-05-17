@@ -1,8 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="900" height="620" viewBox="0 0 900 620" role="img" aria-label="Switch Power More Info preview">
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="620" viewBox="0 0 900 620" role="img" aria-label="Power More Info preview">
   <rect width="900" height="620" fill="#101010"/>
   <rect x="70" y="34" width="760" height="552" rx="28" fill="#1c1c1c"/>
   <text x="126" y="78" fill="#aaa" font-family="Arial, sans-serif" font-size="18">Garden</text>
-  <text x="126" y="108" fill="#eee" font-family="Arial, sans-serif" font-size="28" font-weight="700">Outdoor switch</text>
+  <text x="126" y="108" fill="#eee" font-family="Arial, sans-serif" font-size="28" font-weight="700">Outdoor light</text>
   <text x="450" y="180" text-anchor="middle" fill="#eee" font-family="Arial, sans-serif" font-size="54">On</text>
   <text x="450" y="220" text-anchor="middle" fill="#ccc" font-family="Arial, sans-serif" font-size="22" font-weight="700">38 minutes ago</text>
 

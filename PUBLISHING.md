@@ -11,7 +11,7 @@ lovelace-switch-power-more-info
 Recommended GitHub description:
 
 ```text
-Show live power usage in Home Assistant switch more-info dialogs.
+Show live power usage in Home Assistant more-info dialogs.
 ```
 
 Recommended GitHub topics:
@@ -21,7 +21,7 @@ home-assistant
 hacs
 lovelace
 dashboard
-switch
+power
 power-monitoring
 ```
 
