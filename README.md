@@ -8,7 +8,7 @@ This is a Lovelace dashboard resource for HACS. After installation it automatica
 
 ## Features
 
-- Works on Home Assistant more-info dialogs for switches, lights, fans, and other non-sensor entities with a matching power sensor.
+- Works on Home Assistant more-info dialogs for switches, lights, fans, and other supported control entities with a matching power sensor.
 - Shows a compact badge with a flash icon and current watts.
 - Opens the matched power sensor history when the badge is clicked.
 - Supports Dutch and English labels automatically.
@@ -45,7 +45,7 @@ sensor.<entity_id_without_domain>_instantaneous_power
 sensor.<entity_id_without_domain>_power_2
 ```
 
-It also accepts sensors with `device_class: power` or unit `W`/`kW`, and then tries to match by entity prefix, device code, or friendly name.
+It also accepts sensors with `device_class: power` or unit `W`/`kW`, and then tries to match by entity prefix, device code, or friendly name. Sensor, diagnostic, script, scene, button, and helper more-info dialogs are ignored.
 
 ## Notes
 

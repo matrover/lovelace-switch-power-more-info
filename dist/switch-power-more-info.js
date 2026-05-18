@@ -1,5 +1,5 @@
 (() => {
-  const VERSION = "0.2.0";
+  const VERSION = "0.2.1";
   const BADGE_ID = "switch-power-more-info-badge";
   const INTERVAL_KEY = "__switchPowerMoreInfoInterval";
   const STATE_KEY = "__switchPowerMoreInfoEntity";
@@ -17,7 +17,19 @@
     "calendar",
     "camera",
     "event",
-    "update"
+    "update",
+    "button",
+    "input_button",
+    "automation",
+    "script",
+    "scene",
+    "select",
+    "number",
+    "text",
+    "date",
+    "time",
+    "datetime",
+    "todo"
   ]);
 
   const entityDomain = (entityId) => String(entityId || "").split(".")[0] || "";
@@ -35,13 +47,6 @@
     return null;
   };
 
-  const textDeep = (root) => {
-    if (!root) return "";
-    let text = root.textContent || "";
-    for (const child of root.children || []) text += " " + textDeep(child.shadowRoot);
-    return text.replace(/\s+/g, " ").trim();
-  };
-
   const getHass = () =>
     document.querySelector("home-assistant")?.hass ||
     walk(document.body, (el) => el.hass?.states ? el.hass : null);
@@ -50,15 +55,6 @@
     const rect = el?.getBoundingClientRect?.();
     return rect && rect.width > 0 && rect.height > 0 ? rect : null;
   };
-
-  const entityOf = (el) =>
-    el?.stateObj?.entity_id ||
-    el?.entityId ||
-    el?._entityId ||
-    el?.entity_id ||
-    el?._config?.entity ||
-    el?.config?.entity ||
-    null;
 
   const findPopup = () => {
     const candidates = [];
@@ -73,11 +69,11 @@
       const isMoreInfo = name.includes("more-info");
       const isDialog = name.includes("ha-dialog") || name.includes("mwc-dialog") || name.includes("dialog");
 
-      if (isSurface || isMoreInfo || isDialog) {
+      if (isSurface || isDialog) {
         candidates.push({
           el,
           rect,
-          score: (isSurface ? 3 : 0) + (isMoreInfo ? 2 : 0) + (isDialog ? 1 : 0),
+          score: (isSurface ? 3 : 0) + (isDialog ? 2 : 0) + (isMoreInfo ? 1 : 0),
           area: rect.width * rect.height
         });
       }
@@ -86,39 +82,6 @@
 
     candidates.sort((a, b) => b.score - a.score || b.area - a.area);
     return candidates[0] || null;
-  };
-
-  const findEntityHost = (hass, popup) => {
-    const found = [];
-    const scope = popup?.el || document.body;
-
-    walk(scope.shadowRoot || scope, (el) => {
-      const entityId = entityOf(el);
-      const rect = rectOf(el);
-      const name = (el.localName || "").toLowerCase();
-      const likelyDeviceControl =
-        name.includes("more-info") ||
-        name.includes("state-") ||
-        name.includes("control-") ||
-        el.stateObj;
-
-      if (isPowerTargetEntity(entityId) && rect && likelyDeviceControl) {
-        found.push({ el, id: entityId, rect, area: rect.width * rect.height });
-      }
-      return null;
-    });
-
-    found.sort((a, b) => b.area - a.area);
-    if (found[0]?.id && hass.states[found[0].id]) return found[0];
-
-    const dialogText = textDeep(scope).toLowerCase();
-    const id = Object.values(hass.states).find((state) => {
-      if (!isPowerTargetEntity(state.entity_id)) return false;
-      const friendly = String(state.attributes?.friendly_name || "").toLowerCase();
-      return friendly && dialogText.includes(friendly);
-    })?.entity_id || null;
-
-    return id ? { el: scope, id, rect: rectOf(scope) || popup?.rect } : null;
   };
 
   const removeBadges = (keep) => {
@@ -300,8 +263,7 @@
     const popup = findPopup();
     if (!hass || !popup) return removeBadges(null);
 
-    const entityHost = findEntityHost(hass, popup);
-    const entityId = window[STATE_KEY] || entityHost?.id;
+    const entityId = window[STATE_KEY];
     if (!isPowerTargetEntity(entityId)) return removeBadges(null);
 
     window[STATE_KEY] = entityId;
@@ -321,7 +283,12 @@
 
   window.addEventListener("hass-more-info", (event) => {
     const id = event.detail?.entityId || event.detail?.entity_id || null;
-    if (isPowerTargetEntity(id)) window[STATE_KEY] = id;
+    if (isPowerTargetEntity(id)) {
+      window[STATE_KEY] = id;
+    } else if (id) {
+      window[STATE_KEY] = null;
+      removeBadges(null);
+    }
 
     window.setTimeout(render, 0);
     window.setTimeout(render, 100);
