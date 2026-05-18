@@ -1,5 +1,5 @@
 (() => {
-  const VERSION = "0.2.1";
+  const VERSION = "0.2.2";
   const BADGE_ID = "switch-power-more-info-badge";
   const INTERVAL_KEY = "__switchPowerMoreInfoInterval";
   const STATE_KEY = "__switchPowerMoreInfoEntity";
@@ -218,7 +218,8 @@
 
     const computed = getComputedStyle(popupEl);
     if (computed.position === "static") popupEl.style.position = "relative";
-    popupEl.style.minHeight = "min(620px, calc(100vh - 12px))";
+    popupEl.style.minHeight = "min(660px, calc(100vh - 8px))";
+    popupEl.style.maxHeight = "calc(100vh - 8px)";
     popupEl.style.overflow = "hidden";
   };
 
@@ -230,7 +231,7 @@
       background: "rgba(255,255,255,.11)",
       border: "0",
       borderRadius: "10px",
-      bottom: "10px",
+      bottom: "8px",
       boxSizing: "border-box",
       color: "var(--primary-text-color,#f2f2f2)",
       cursor: "pointer",
