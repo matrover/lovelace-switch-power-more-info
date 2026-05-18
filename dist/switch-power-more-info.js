@@ -1,8 +1,12 @@
 (() => {
-  const VERSION = "0.2.2";
+  const VERSION = "0.2.3";
   const BADGE_ID = "switch-power-more-info-badge";
   const INTERVAL_KEY = "__switchPowerMoreInfoInterval";
   const STATE_KEY = "__switchPowerMoreInfoEntity";
+  const BADGE_BOTTOM = 4;
+  const BADGE_HEIGHT = 46;
+  const BADGE_GAP = 8;
+  const MAX_CONTROL_SHIFT = 56;
   let lastOpenAt = 0;
 
   const language = (navigator.language || "en").toLowerCase();
@@ -89,12 +93,56 @@
       if (badge && badge !== keep) badge.remove();
     };
 
+    if (!keep) restoreShiftedControls(document.body);
     document.querySelectorAll?.(`#${BADGE_ID}`).forEach(remove);
     walk(document.body, (el) => {
       if (el.id === BADGE_ID) remove(el);
       el.shadowRoot?.querySelectorAll?.(`#${BADGE_ID}`).forEach(remove);
       return null;
     });
+  };
+
+  const restoreShiftedControls = (scope) => {
+    walk(scope?.shadowRoot || scope, (el) => {
+      if (el.dataset?.powerMoreInfoTransform !== undefined) {
+        el.style.transform = el.dataset.powerMoreInfoTransform;
+        delete el.dataset.powerMoreInfoTransform;
+        delete el.dataset.powerMoreInfoShift;
+      }
+      return null;
+    });
+  };
+
+  const reserveBadgeSpace = (popupEl) => {
+    const popupRect = rectOf(popupEl);
+    if (!popupRect) return;
+
+    restoreShiftedControls(popupEl);
+    const reservedTop = popupRect.bottom - BADGE_BOTTOM - BADGE_HEIGHT - BADGE_GAP;
+    const controls = [];
+
+    walk(popupEl.shadowRoot || popupEl, (el) => {
+      const name = (el.localName || "").toLowerCase();
+      const isControl = name.includes("ha-control") || name.includes("more-info-control");
+      const rect = rectOf(el);
+
+      if (isControl && rect && rect.width > 70 && rect.height > 90 && rect.bottom > reservedTop) {
+        controls.push({ el, rect, area: rect.width * rect.height });
+      }
+      return null;
+    });
+
+    controls.sort((a, b) => b.rect.bottom - a.rect.bottom || b.area - a.area);
+    const target = controls[0];
+    if (!target) return;
+
+    const shift = Math.min(MAX_CONTROL_SHIFT, Math.ceil(target.rect.bottom - reservedTop));
+    if (shift < 6) return;
+
+    target.el.dataset.powerMoreInfoTransform = target.el.style.transform || "";
+    target.el.dataset.powerMoreInfoShift = String(shift);
+    target.el.style.transform = `${target.el.dataset.powerMoreInfoTransform} translateY(-${shift}px)`.trim();
+    target.el.style.willChange = "transform";
   };
 
   const isPowerSensor = (state) => {
@@ -225,13 +273,14 @@
 
   const styleBadge = (badge, popupEl) => {
     preparePopup(popupEl);
+    reserveBadgeSpace(popupEl);
 
     Object.assign(badge.style, {
       alignItems: "center",
       background: "rgba(255,255,255,.11)",
       border: "0",
       borderRadius: "10px",
-      bottom: "8px",
+      bottom: `${BADGE_BOTTOM}px`,
       boxSizing: "border-box",
       color: "var(--primary-text-color,#f2f2f2)",
       cursor: "pointer",
