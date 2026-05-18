@@ -1,5 +1,5 @@
 (() => {
-  const VERSION = "0.2.3";
+  const VERSION = "0.2.4";
   const BADGE_ID = "switch-power-more-info-badge";
   const INTERVAL_KEY = "__switchPowerMoreInfoInterval";
   const STATE_KEY = "__switchPowerMoreInfoEntity";
@@ -118,15 +118,27 @@
     if (!popupRect) return;
 
     restoreShiftedControls(popupEl);
+    const popupCenterX = popupRect.left + popupRect.width / 2;
     const reservedTop = popupRect.bottom - BADGE_BOTTOM - BADGE_HEIGHT - BADGE_GAP;
     const controls = [];
 
     walk(popupEl.shadowRoot || popupEl, (el) => {
       const name = (el.localName || "").toLowerCase();
-      const isControl = name.includes("ha-control") || name.includes("more-info-control");
+      const isControl =
+        name.includes("ha-control") ||
+        name.includes("more-info-control") ||
+        name.includes("state-control");
       const rect = rectOf(el);
+      const centerX = (rect?.left || 0) + (rect?.width || 0) / 2;
+      const centeredVerticalControl =
+        rect &&
+        rect.width >= 70 &&
+        rect.width <= Math.min(260, popupRect.width * 0.55) &&
+        rect.height >= 120 &&
+        rect.height <= popupRect.height * 0.9 &&
+        Math.abs(centerX - popupCenterX) <= Math.max(90, popupRect.width * 0.25);
 
-      if (isControl && rect && rect.width > 70 && rect.height > 90 && rect.bottom > reservedTop) {
+      if (el.id !== BADGE_ID && (isControl || centeredVerticalControl) && rect && rect.bottom > reservedTop) {
         controls.push({ el, rect, area: rect.width * rect.height });
       }
       return null;
