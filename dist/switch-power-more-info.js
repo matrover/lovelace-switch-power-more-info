@@ -1,5 +1,5 @@
 (() => {
-  const VERSION = "0.2.6";
+  const VERSION = "0.2.7";
   const BADGE_ID = "switch-power-more-info-badge";
   const INTERVAL_KEY = "__switchPowerMoreInfoInterval";
   const STATE_KEY = "__switchPowerMoreInfoEntity";
@@ -130,6 +130,7 @@
         name.includes("ha-control") ||
         name.includes("more-info-control") ||
         name.includes("state-control");
+      const isStateControl = name.includes("state-control");
       const isLeafControl =
         name.includes("ha-control-switch") ||
         name === "ha-switch" ||
@@ -156,7 +157,7 @@
           el,
           rect,
           area: rect.width * rect.height,
-          score: isLeafControl ? 3 : isControl ? 2 : 1
+          score: isStateControl ? 4 : isLeafControl ? 3 : isControl ? 2 : 1
         });
       }
       return null;
