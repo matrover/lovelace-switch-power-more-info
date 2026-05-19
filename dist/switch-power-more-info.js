@@ -1,5 +1,5 @@
 (() => {
-  const VERSION = "0.2.5";
+  const VERSION = "0.2.6";
   const BADGE_ID = "switch-power-more-info-badge";
   const INTERVAL_KEY = "__switchPowerMoreInfoInterval";
   const STATE_KEY = "__switchPowerMoreInfoEntity";
@@ -119,12 +119,12 @@
     const popupRect = rectOf(popupEl);
     if (!popupRect) return;
 
-    restoreShiftedControls(popupEl);
+    restoreShiftedControls(document.body);
     const popupCenterX = popupRect.left + popupRect.width / 2;
     const reservedTop = popupRect.bottom - BADGE_BOTTOM - BADGE_HEIGHT - BADGE_GAP;
     const controls = [];
 
-    walk(popupEl.shadowRoot || popupEl, (el) => {
+    walk(document.body, (el) => {
       const name = (el.localName || "").toLowerCase();
       const isControl =
         name.includes("ha-control") ||
@@ -136,16 +136,22 @@
         name.includes("ha-control-slider") ||
         name.includes("ha-control-circular-slider");
       const rect = rectOf(el);
+      const insidePopup =
+        rect &&
+        rect.left >= popupRect.left - 8 &&
+        rect.right <= popupRect.right + 8 &&
+        rect.top >= popupRect.top - 8 &&
+        rect.bottom <= popupRect.bottom + 24;
       const centerX = (rect?.left || 0) + (rect?.width || 0) / 2;
       const centeredVerticalControl =
-        rect &&
+        insidePopup &&
         rect.width >= 70 &&
         rect.width <= Math.min(260, popupRect.width * 0.55) &&
         rect.height >= 120 &&
         rect.height <= popupRect.height * 0.9 &&
         Math.abs(centerX - popupCenterX) <= Math.max(90, popupRect.width * 0.25);
 
-      if (el.id !== BADGE_ID && (isControl || centeredVerticalControl) && rect && rect.bottom > reservedTop) {
+      if (el.id !== BADGE_ID && insidePopup && (isControl || centeredVerticalControl) && rect.bottom > reservedTop) {
         controls.push({
           el,
           rect,
