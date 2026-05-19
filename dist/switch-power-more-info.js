@@ -1,5 +1,5 @@
 (() => {
-  const VERSION = "0.2.7";
+  const VERSION = "0.2.8";
   const BADGE_ID = "switch-power-more-info-badge";
   const INTERVAL_KEY = "__switchPowerMoreInfoInterval";
   const STATE_KEY = "__switchPowerMoreInfoEntity";
@@ -115,13 +115,14 @@
     });
   };
 
-  const reserveBadgeSpace = (popupEl) => {
+  const reserveBadgeSpace = (popupEl, badgeEl) => {
     const popupRect = rectOf(popupEl);
     if (!popupRect) return;
 
     restoreShiftedControls(document.body);
     const popupCenterX = popupRect.left + popupRect.width / 2;
-    const reservedTop = popupRect.bottom - BADGE_BOTTOM - BADGE_HEIGHT - BADGE_GAP;
+    const badgeRect = rectOf(badgeEl);
+    const reservedTop = (badgeRect ? badgeRect.top : popupRect.bottom - BADGE_BOTTOM - BADGE_HEIGHT) - BADGE_GAP;
     const controls = [];
 
     walk(document.body, (el) => {
@@ -306,7 +307,6 @@
 
   const styleBadge = (badge, popupEl) => {
     preparePopup(popupEl);
-    reserveBadgeSpace(popupEl);
 
     Object.assign(badge.style, {
       alignItems: "center",
@@ -339,6 +339,7 @@
     });
 
     badge.dataset.version = VERSION;
+    reserveBadgeSpace(popupEl, badge);
   };
 
   const render = () => {
