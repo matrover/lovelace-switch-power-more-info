@@ -1,5 +1,5 @@
 (() => {
-  const VERSION = "0.2.4";
+  const VERSION = "0.2.5";
   const BADGE_ID = "switch-power-more-info-badge";
   const INTERVAL_KEY = "__switchPowerMoreInfoInterval";
   const STATE_KEY = "__switchPowerMoreInfoEntity";
@@ -106,7 +106,9 @@
     walk(scope?.shadowRoot || scope, (el) => {
       if (el.dataset?.powerMoreInfoTransform !== undefined) {
         el.style.transform = el.dataset.powerMoreInfoTransform;
+        el.style.marginBottom = el.dataset.powerMoreInfoMarginBottom;
         delete el.dataset.powerMoreInfoTransform;
+        delete el.dataset.powerMoreInfoMarginBottom;
         delete el.dataset.powerMoreInfoShift;
       }
       return null;
@@ -128,6 +130,11 @@
         name.includes("ha-control") ||
         name.includes("more-info-control") ||
         name.includes("state-control");
+      const isLeafControl =
+        name.includes("ha-control-switch") ||
+        name === "ha-switch" ||
+        name.includes("ha-control-slider") ||
+        name.includes("ha-control-circular-slider");
       const rect = rectOf(el);
       const centerX = (rect?.left || 0) + (rect?.width || 0) / 2;
       const centeredVerticalControl =
@@ -139,12 +146,17 @@
         Math.abs(centerX - popupCenterX) <= Math.max(90, popupRect.width * 0.25);
 
       if (el.id !== BADGE_ID && (isControl || centeredVerticalControl) && rect && rect.bottom > reservedTop) {
-        controls.push({ el, rect, area: rect.width * rect.height });
+        controls.push({
+          el,
+          rect,
+          area: rect.width * rect.height,
+          score: isLeafControl ? 3 : isControl ? 2 : 1
+        });
       }
       return null;
     });
 
-    controls.sort((a, b) => b.rect.bottom - a.rect.bottom || b.area - a.area);
+    controls.sort((a, b) => b.score - a.score || b.rect.bottom - a.rect.bottom || b.area - a.area);
     const target = controls[0];
     if (!target) return;
 
@@ -152,8 +164,10 @@
     if (shift < 6) return;
 
     target.el.dataset.powerMoreInfoTransform = target.el.style.transform || "";
+    target.el.dataset.powerMoreInfoMarginBottom = target.el.style.marginBottom || "";
     target.el.dataset.powerMoreInfoShift = String(shift);
     target.el.style.transform = `${target.el.dataset.powerMoreInfoTransform} translateY(-${shift}px)`.trim();
+    target.el.style.marginBottom = `${shift}px`;
     target.el.style.willChange = "transform";
   };
 
