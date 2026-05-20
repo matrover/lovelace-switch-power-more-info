@@ -1,5 +1,7 @@
 # Power More Info
 
-Adds a compact live power badge to Home Assistant more-info dialogs for entities with matching power sensors.
+![Power More Info icon](docs/icon.svg)
 
-The badge is clickable and opens the matched power sensor history.
+Adds a compact live wattage badge to Home Assistant more-info dialogs for switches, lights, fans, smart plugs, and other entities with matching power sensors.
+
+Keywords: Home Assistant power badge, HACS dashboard plugin, Lovelace power usage, more-info wattage, smart plug watts, power sensor history, energy monitoring.

@@ -1,42 +1,77 @@
 # Power More Info
 
-Show the live power usage for Home Assistant entities directly in the more-info dialog.
+<p align="center">
+  <img src="docs/icon.svg" alt="Power More Info icon" width="96" height="96">
+</p>
 
-This is a Lovelace dashboard resource for HACS. After installation it automatically adds a small power badge below supported controls when the opened entity has a matching power sensor.
+<p align="center">
+  <a href="https://my.home-assistant.io/redirect/hacs_repository/?owner=matrover&repository=lovelace-switch-power-more-info&category=dashboard">
+    <img src="https://my.home-assistant.io/badges/hacs_repository.svg" alt="Open this repository in HACS">
+  </a>
+  <a href="https://my.home-assistant.io/redirect/lovelace_resources/">
+    <img src="https://my.home-assistant.io/badges/lovelace_resources.svg" alt="Open dashboard resources in Home Assistant">
+  </a>
+</p>
 
-<img width="583" height="710" alt="image" src="https://github.com/user-attachments/assets/63a34249-9765-4f7e-9d08-bc57b963d38b" />
+Show live power usage in Home Assistant more-info dialogs. Power More Info is a frontend-only Lovelace dashboard resource for HACS that adds a compact, clickable wattage badge below supported controls when the opened entity has a matching power sensor.
+
+It is built for smart plugs, switch entities, lights, fans, appliance plugs, Zigbee/Z-Wave plugs, Tuya plugs, Shelly devices, energy monitoring sensors, and Home Assistant dashboards where you want instant watt values without editing every card.
+
+<img width="583" height="710" alt="Power More Info screenshot in a Home Assistant more-info dialog" src="https://github.com/user-attachments/assets/63a34249-9765-4f7e-9d08-bc57b963d38b" />
+
+## Search keywords
+
+Home Assistant power badge, HACS power monitoring, Lovelace power usage, more-info wattage, more-info dialog power sensor, smart plug watts, switch power consumption, light power monitoring, fan power monitoring, Home Assistant energy monitor, electricity usage, live watts, watt sensor, dashboard resource, frontend plugin, custom Lovelace plugin, HACS dashboard plugin.
 
 ## Features
 
-- Works on Home Assistant more-info dialogs for switches, lights, fans, and other supported control entities with a matching power sensor.
-- Shows a compact badge with a flash icon and current watts.
-- Opens the matched power sensor history when the badge is clicked.
+- Adds a live `W` badge to Home Assistant more-info dialogs.
+- Works with switches, lights, fans, and other controllable entities that have a related power sensor.
+- Keeps sensors, helpers, scripts, scenes, buttons, diagnostic entities, and unrelated entities out of scope.
+- Shows a compact card-style badge with a green flash icon and current watts.
+- Opens the matched power sensor history graph when the badge is clicked.
+- Preserves the original more-info control spacing and avoids slider overlap.
 - Supports Dutch and English labels automatically.
-- Makes Home Assistant device overview columns responsive on wide screens.
-- Does not require dashboard card changes.
+- Improves Home Assistant device overview layout on wide screens.
+- Requires no dashboard YAML changes and no per-card configuration.
 
 ## Installation
 
-### HACS custom repository
+### HACS
 
-1. Open HACS.
+Use the My Home Assistant button above, or install manually:
+
+1. Open HACS in Home Assistant.
 2. Open the menu and choose `Custom repositories`.
-3. Add this repository URL.
+3. Add this repository URL:
+
+   ```text
+   https://github.com/matrover/lovelace-switch-power-more-info
+   ```
+
 4. Select category `Dashboard`.
 5. Install `Power More Info`.
-6. Refresh the browser or restart the Home Assistant app.
+6. Refresh the browser, clear frontend cache, or restart the Home Assistant companion app.
 
-HACS should add this dashboard resource:
+HACS should register this dashboard resource:
 
 ```text
 /hacsfiles/lovelace-switch-power-more-info/switch-power-more-info.js
 ```
 
-## Power sensor matching
+### Manual resource check
 
-The plugin looks for a power sensor related to the opened entity.
+If the badge does not appear after installation, open Dashboard resources with the button above and verify that the resource exists as a JavaScript module.
 
-Preferred sensor names:
+## How It Works
+
+When you open a Home Assistant more-info dialog, the plugin checks the opened entity and tries to find a matching power sensor. If it finds one, it renders a small badge at the bottom of the dialog with the current power usage.
+
+Clicking the badge opens the matched power sensor's more-info dialog, so you can immediately view the history graph.
+
+## Power Sensor Matching
+
+Preferred exact sensor IDs:
 
 ```text
 sensor.<entity_id_without_domain>_electric_consumption_w
@@ -46,8 +81,35 @@ sensor.<entity_id_without_domain>_instantaneous_power
 sensor.<entity_id_without_domain>_power_2
 ```
 
-It also accepts sensors with `device_class: power` or unit `W`/`kW`, and then tries to match by entity prefix, device code, or friendly name. Sensor, diagnostic, script, scene, button, and helper more-info dialogs are ignored.
+The plugin also accepts sensors with:
 
-## Notes
+- `device_class: power`
+- unit `W`
+- unit `kW`
 
-This is a frontend-only Lovelace plugin. It does not create sensors, helpers, automations, or backend integrations.
+Fallback matching is intentionally strict. It can match by entity prefix, useful device codes such as `NC24`, or a meaningful friendly-name prefix. It avoids broad substring matches, so names like `room` no longer accidentally match unrelated sensors like `stroomverbruik`.
+
+## Supported Use Cases
+
+- Smart plug more-info dialogs with live wattage.
+- Zigbee, Z-Wave, Shelly, Tuya, ESPHome, and MQTT power plugs.
+- Lights or fans with separate power sensors.
+- Appliance monitoring for washing machines, dryers, ovens, fridges, pumps, chargers, and media equipment.
+- Home Assistant dashboards where existing cards already open more-info dialogs.
+
+## Limitations
+
+- This is a frontend-only plugin. It does not create sensors, helpers, automations, or integrations.
+- The badge only appears when a matching power sensor already exists.
+- HACS and Home Assistant may require a browser refresh before updated frontend resources are loaded.
+
+## Troubleshooting
+
+- No badge visible: check that a matching sensor exists and has `device_class: power`, `W`, or `kW`.
+- Wrong sensor matched: rename the sensor or entity so they share a useful device code or exact prefix.
+- Old layout still visible: clear the frontend cache or restart the Home Assistant app.
+- Badge visible but not clickable: update to the latest release and hard refresh the browser.
+
+## HACS Metadata
+
+Power More Info is a HACS dashboard plugin / Lovelace frontend resource for Home Assistant. Useful discovery terms include: `home-assistant`, `hacs`, `hacs-dashboard`, `hacs-plugin`, `lovelace`, `frontend`, `power-monitoring`, `energy-monitoring`, `smart-plug`, `wattage`, `more-info`, `power-sensor`.

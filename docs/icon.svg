@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Power More Info icon">
+  <defs>
+    <linearGradient id="bg" x1="96" y1="64" x2="416" y2="448" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#252525"/>
+      <stop offset="1" stop-color="#141414"/>
+    </linearGradient>
+    <linearGradient id="bolt" x1="244" y1="118" x2="312" y2="394" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#79ff37"/>
+      <stop offset="1" stop-color="#15d600"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
+  <rect x="146" y="86" width="220" height="340" rx="72" fill="#4b3f1f"/>
+  <rect x="166" y="106" width="180" height="190" rx="54" fill="#ffc83d"/>
+  <path d="M286 136 202 280h70l-42 112 104-160h-74l26-96Z" fill="url(#bolt)"/>
+  <rect x="148" y="360" width="216" height="72" rx="24" fill="#343434"/>
+  <circle cx="194" cy="396" r="16" fill="#20e500"/>
+  <rect x="226" y="380" width="92" height="14" rx="7" fill="#b8b8b8"/>
+  <rect x="226" y="404" width="116" height="14" rx="7" fill="#f4f4f4"/>
+</svg>
