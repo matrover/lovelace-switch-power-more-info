@@ -1,5 +1,5 @@
 (() => {
-  const VERSION = "0.2.8";
+  const VERSION = "0.2.9";
   const BADGE_ID = "switch-power-more-info-badge";
   const INTERVAL_KEY = "__switchPowerMoreInfoInterval";
   const STATE_KEY = "__switchPowerMoreInfoEntity";
@@ -107,8 +107,10 @@
       if (el.dataset?.powerMoreInfoTransform !== undefined) {
         el.style.transform = el.dataset.powerMoreInfoTransform;
         el.style.marginBottom = el.dataset.powerMoreInfoMarginBottom;
+        el.style.willChange = el.dataset.powerMoreInfoWillChange;
         delete el.dataset.powerMoreInfoTransform;
         delete el.dataset.powerMoreInfoMarginBottom;
+        delete el.dataset.powerMoreInfoWillChange;
         delete el.dataset.powerMoreInfoShift;
       }
       return null;
@@ -168,15 +170,23 @@
     const target = controls[0];
     if (!target) return;
 
-    const shift = Math.min(MAX_CONTROL_SHIFT, Math.ceil(target.rect.bottom - reservedTop));
-    if (shift < 6) return;
+    const reserve = Math.min(MAX_CONTROL_SHIFT, Math.ceil(target.rect.bottom - reservedTop));
+    if (reserve < 6) return;
 
     target.el.dataset.powerMoreInfoTransform = target.el.style.transform || "";
     target.el.dataset.powerMoreInfoMarginBottom = target.el.style.marginBottom || "";
-    target.el.dataset.powerMoreInfoShift = String(shift);
-    target.el.style.transform = `${target.el.dataset.powerMoreInfoTransform} translateY(-${shift}px)`.trim();
-    target.el.style.marginBottom = `${shift}px`;
-    target.el.style.willChange = "transform";
+    target.el.dataset.powerMoreInfoWillChange = target.el.style.willChange || "";
+    target.el.dataset.powerMoreInfoShift = String(reserve);
+    target.el.style.marginBottom = `${reserve}px`;
+
+    const adjustedBadgeRect = rectOf(badgeEl);
+    const adjustedRect = rectOf(target.el);
+    const adjustedReservedTop = (adjustedBadgeRect ? adjustedBadgeRect.top : reservedTop + reserve) - BADGE_GAP;
+    const residualShift = adjustedRect ? Math.min(MAX_CONTROL_SHIFT, Math.ceil(adjustedRect.bottom - adjustedReservedTop)) : 0;
+    if (residualShift >= 6) {
+      target.el.style.transform = `${target.el.dataset.powerMoreInfoTransform} translateY(-${residualShift}px)`.trim();
+      target.el.style.willChange = "transform";
+    }
   };
 
   const isPowerSensor = (state) => {
