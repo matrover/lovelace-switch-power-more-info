@@ -1,5 +1,5 @@
 (() => {
-  const VERSION = "0.3.0";
+  const VERSION = "0.3.1";
   const BADGE_ID = "switch-power-more-info-badge";
   const DEVICE_LAYOUT_STYLE_ID = "switch-power-more-info-device-layout";
   const INTERVAL_KEY = "__switchPowerMoreInfoInterval";
@@ -306,6 +306,25 @@
     return deviceClass === "power" || unit === "w" || unit === "kw";
   };
 
+  const wordsOf = (value) =>
+    String(value || "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .match(/[a-z0-9]+/g) || [];
+
+  const isUsefulCode = (value) => {
+    const code = String(value || "").toLowerCase();
+    return code.length >= 3 && (/\d/.test(code) || /^nc[a-z0-9]+$/.test(code));
+  };
+
+  const hasWord = (value, word) => wordsOf(value).includes(String(word || "").toLowerCase());
+
+  const startsWithWords = (value, prefixWords) => {
+    const words = wordsOf(value);
+    return prefixWords.length > 0 && prefixWords.every((word, index) => words[index] === word);
+  };
+
   const pickPowerSensor = (hass, entityState) => {
     const base = entityState.entity_id.replace(/^[^.]+\./, "");
     const preferred = [
@@ -328,11 +347,12 @@
     if (prefixed) return prefixed;
 
     const code = base.split("_").slice(-1)[0]?.toLowerCase();
-    const entityName = String(entityState.attributes?.friendly_name || "").toLowerCase();
+    const entityNameWords = wordsOf(entityState.attributes?.friendly_name);
+    const canMatchName = entityNameWords.length >= 3 || entityNameWords.some(isUsefulCode);
 
     return sensors.find((state) => {
       const name = String(state.attributes?.friendly_name || "").toLowerCase();
-      return (code && name.includes(code)) || (entityName && name.startsWith(entityName));
+      return (isUsefulCode(code) && hasWord(name, code)) || (canMatchName && startsWithWords(name, entityNameWords));
     }) || null;
   };
 
