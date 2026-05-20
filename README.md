@@ -12,6 +12,7 @@ This is a Lovelace dashboard resource for HACS. After installation it automatica
 - Shows a compact badge with a flash icon and current watts.
 - Opens the matched power sensor history when the badge is clicked.
 - Supports Dutch and English labels automatically.
+- Makes Home Assistant device overview columns responsive on wide screens.
 - Does not require dashboard card changes.
 
 ## Installation
