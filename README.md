@@ -1,7 +1,7 @@
 # Power More Info
 
 <p align="center">
-  <img src="docs/icon.svg" alt="Power More Info icon" width="96" height="96">
+  <img src="https://raw.githubusercontent.com/matrover/lovelace-switch-power-more-info/main/docs/icon.svg" alt="Power More Info icon" width="96" height="96">
 </p>
 
 <p align="center">
@@ -39,7 +39,15 @@ Home Assistant power badge, HACS power monitoring, Lovelace power usage, more-in
 
 ### HACS
 
-Use the My Home Assistant button above, or install manually:
+Add this repository to HACS with My Home Assistant:
+
+<p>
+  <a href="https://my.home-assistant.io/redirect/hacs_repository/?owner=matrover&repository=lovelace-switch-power-more-info&category=dashboard">
+    <img src="https://my.home-assistant.io/badges/hacs_repository.svg" alt="Add Power More Info to HACS">
+  </a>
+</p>
+
+Or install manually:
 
 1. Open HACS in Home Assistant.
 2. Open the menu and choose `Custom repositories`.
@@ -113,3 +121,5 @@ Fallback matching is intentionally strict. It can match by entity prefix, useful
 ## HACS Metadata
 
 Power More Info is a HACS dashboard plugin / Lovelace frontend resource for Home Assistant. Useful discovery terms include: `home-assistant`, `hacs`, `hacs-dashboard`, `hacs-plugin`, `lovelace`, `frontend`, `power-monitoring`, `energy-monitoring`, `smart-plug`, `wattage`, `more-info`, `power-sensor`.
+
+The project icon is included in the rendered README and HACS detail view. HACS dashboard repositories use the standard dashboard icon in the repository list.
