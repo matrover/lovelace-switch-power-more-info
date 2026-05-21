@@ -1,7 +1,7 @@
 # Power More Info
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/matrover/lovelace-switch-power-more-info/main/docs/icon.svg" alt="Power More Info icon" width="96" height="96">
+  <img src="https://raw.githubusercontent.com/matrover/lovelace-switch-power-more-info/main/docs/icon.png" alt="Power More Info icon" width="96" height="96">
 </p>
 
 <p align="center">
@@ -13,15 +13,33 @@
   </a>
 </p>
 
-Show live power usage in Home Assistant more-info dialogs. Power More Info is a frontend-only Lovelace dashboard resource for HACS that adds a compact, clickable wattage badge below supported controls when the opened entity has a matching power sensor.
+Show live power usage in Home Assistant more-info dialogs.
+Power More Info is a frontend-only Lovelace dashboard resource for HACS.
+It adds a compact, clickable wattage badge below supported controls when the
+opened entity has a matching power sensor.
 
-It is built for smart plugs, switch entities, lights, fans, appliance plugs, Zigbee/Z-Wave plugs, Tuya plugs, Shelly devices, energy monitoring sensors, and Home Assistant dashboards where you want instant watt values without editing every card.
+It is built for smart plugs, switch entities, lights, fans, appliance plugs,
+Zigbee/Z-Wave plugs, Tuya plugs, Shelly devices, energy monitoring sensors,
+and Home Assistant dashboards where you want instant watt values without
+editing every card.
 
 <img width="583" height="710" alt="Power More Info screenshot in a Home Assistant more-info dialog" src="https://github.com/user-attachments/assets/63a34249-9765-4f7e-9d08-bc57b963d38b" />
 
 ## Search keywords
 
-Home Assistant power badge, HACS power monitoring, Lovelace power usage, more-info wattage, more-info dialog power sensor, smart plug watts, switch power consumption, light power monitoring, fan power monitoring, Home Assistant energy monitor, electricity usage, live watts, watt sensor, dashboard resource, frontend plugin, custom Lovelace plugin, HACS dashboard plugin.
+- Home Assistant power badge
+- HACS power monitoring
+- Lovelace power usage
+- more-info wattage
+- smart plug watts
+- switch power consumption
+- light power monitoring
+- fan power monitoring
+- Home Assistant energy monitor
+- dashboard resource
+- frontend plugin
+- custom Lovelace plugin
+- HACS dashboard plugin
 
 ## Features
 
@@ -120,6 +138,11 @@ Fallback matching is intentionally strict. It can match by entity prefix, useful
 
 ## HACS Metadata
 
-Power More Info is a HACS dashboard plugin / Lovelace frontend resource for Home Assistant. Useful discovery terms include: `home-assistant`, `hacs`, `hacs-dashboard`, `hacs-plugin`, `lovelace`, `frontend`, `power-monitoring`, `energy-monitoring`, `smart-plug`, `wattage`, `more-info`, `power-sensor`.
+Power More Info is a HACS dashboard plugin / Lovelace frontend resource
+for Home Assistant.
+
+Useful discovery terms include: `home-assistant`, `hacs`, `hacs-dashboard`,
+`hacs-plugin`, `lovelace`, `frontend`, `power-monitoring`,
+`energy-monitoring`, `smart-plug`, `wattage`, `more-info`, `power-sensor`.
 
 The project icon is included in the rendered README and HACS detail view. HACS dashboard repositories use the standard dashboard icon in the repository list.

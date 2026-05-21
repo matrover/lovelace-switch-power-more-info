@@ -1,6 +1,6 @@
 # Power More Info
 
-![Power More Info icon](https://raw.githubusercontent.com/matrover/lovelace-switch-power-more-info/main/docs/icon.svg)
+![Power More Info icon](https://raw.githubusercontent.com/matrover/lovelace-switch-power-more-info/main/docs/icon.png)
 
 Adds a compact live wattage badge to Home Assistant more-info dialogs for switches, lights, fans, smart plugs, and other entities with matching power sensors.
 
