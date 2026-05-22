@@ -50,7 +50,6 @@ editing every card.
 - Opens the matched power sensor history graph when the badge is clicked.
 - Preserves the original more-info control spacing and avoids slider overlap.
 - Supports Dutch and English labels automatically.
-- Improves Home Assistant device overview layout on wide screens.
 - Requires no dashboard YAML changes and no per-card configuration.
 
 ## Installation

@@ -1,7 +1,6 @@
 (() => {
-  const VERSION = "0.3.1";
+  const VERSION = "0.3.6";
   const BADGE_ID = "switch-power-more-info-badge";
-  const DEVICE_LAYOUT_STYLE_ID = "switch-power-more-info-device-layout";
   const INTERVAL_KEY = "__switchPowerMoreInfoInterval";
   const STATE_KEY = "__switchPowerMoreInfoEntity";
   const BADGE_BOTTOM = 4;
@@ -50,104 +49,6 @@
       if (found) return found;
     }
     return null;
-  };
-
-  const walkAll = (root, visit) => {
-    if (!root) return;
-    for (const child of root.children || []) {
-      visit(child);
-      walkAll(child.shadowRoot, visit);
-      walkAll(child, visit);
-    }
-  };
-
-  const injectDeviceLayoutStyle = (root) => {
-    if (!root?.querySelector || root.querySelector(`#${DEVICE_LAYOUT_STYLE_ID}`)) return;
-
-    const style = document.createElement("style");
-    style.id = DEVICE_LAYOUT_STYLE_ID;
-    style.textContent = `
-      .power-more-info-device-grid {
-        display: grid !important;
-        grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)) !important;
-        align-items: start !important;
-        gap: var(--grid-card-gap, 16px) !important;
-        width: min(100%, calc(100vw - 96px)) !important;
-        max-width: min(1480px, calc(100vw - 96px)) !important;
-        margin-left: auto !important;
-        margin-right: auto !important;
-      }
-
-      @media (max-width: 870px) {
-        .power-more-info-device-grid {
-          width: min(100%, calc(100vw - 32px)) !important;
-          max-width: min(100%, calc(100vw - 32px)) !important;
-          grid-template-columns: 1fr !important;
-        }
-      }
-
-      .power-more-info-device-grid > *,
-      .power-more-info-device-grid ha-card {
-        min-width: 0 !important;
-        max-width: 100% !important;
-      }
-    `;
-    root.appendChild(style);
-  };
-
-  const isDeviceOverviewRoot = (root, host) => {
-    const hostName = (host?.localName || "").toLowerCase();
-    if (hostName.includes("config-device") || hostName.includes("device-page")) return true;
-
-    const text = String(root?.textContent || "");
-    return text.includes("Device info") && text.includes("Activity");
-  };
-
-  const applyDeviceOverviewLayout = () => {
-    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
-    if (viewportWidth < 520) return;
-
-    walkAll(document.body, (host) => {
-      const root = host.shadowRoot;
-      if (!root || !isDeviceOverviewRoot(root, host)) return;
-
-      injectDeviceLayoutStyle(root);
-
-      const cards = [...root.querySelectorAll("ha-card")].filter((card) => {
-        const rect = rectOf(card);
-        return rect && rect.width >= 180 && rect.height >= 60;
-      });
-      if (cards.length < 3) return;
-
-      const parents = new Map();
-      for (const card of cards) {
-        let node = card.parentElement;
-        let depth = 0;
-        while (node && depth < 8) {
-          const count = parents.get(node) || 0;
-          parents.set(node, count + 1);
-          node = node.parentElement;
-          depth += 1;
-        }
-      }
-
-      let best = null;
-      for (const [node, count] of parents) {
-        if (count < 3) continue;
-        const rect = rectOf(node);
-        if (!rect || rect.width < 280) continue;
-        const directLayoutChildren = [...node.children].filter((child) => child.querySelector?.("ha-card") || child.localName === "ha-card");
-        const score =
-          count * 10 +
-          directLayoutChildren.length * 7 -
-          Math.abs((rect.width || 0) - Math.min(viewportWidth - 96, 1480)) / 40;
-
-        if (!best || score > best.score) best = { node, score };
-      }
-
-      if (!best) return;
-      best.node.classList.add("power-more-info-device-grid");
-    });
   };
 
   const getHass = () =>
@@ -509,8 +410,6 @@
   });
 
   window.addEventListener("location-changed", () => {
-    window.setTimeout(applyDeviceOverviewLayout, 0);
-    window.setTimeout(applyDeviceOverviewLayout, 300);
     window.setTimeout(render, 0);
     window.setTimeout(() => {
       if (!findPopup()) {
@@ -522,8 +421,6 @@
 
   window.clearInterval(window[INTERVAL_KEY]);
   window[INTERVAL_KEY] = window.setInterval(render, 250);
-  window.addEventListener("resize", () => window.setTimeout(applyDeviceOverviewLayout, 50));
-  applyDeviceOverviewLayout();
   render();
 
   console.info(`Power More Info ${VERSION} loaded`);
