@@ -1,5 +1,5 @@
 (() => {
-  const VERSION = "0.3.6";
+  const VERSION = "0.3.7";
   const BADGE_ID = "switch-power-more-info-badge";
   const INTERVAL_KEY = "__switchPowerMoreInfoInterval";
   const STATE_KEY = "__switchPowerMoreInfoEntity";
@@ -60,31 +60,40 @@
     return rect && rect.width > 0 && rect.height > 0 ? rect : null;
   };
 
+  const isMoreInfoDialog = (el) =>
+    (el.localName || "").toLowerCase() === "ha-more-info-dialog";
+
+  const hasOpenMoreInfo = () =>
+    Boolean(walk(document.body, (el) => (isMoreInfoDialog(el) ? el : null)));
+
   const findPopup = () => {
+    // Guard: only render when an actual HA more-info dialog is present. When the
+    // more-info dialog closes, HA keeps other dialog-like overlays in the DOM
+    // (sidebar drawer, scrim, generic ha-dialog). Matching those on mobile leaks
+    // the badge into the navigation menu on iOS. If no <ha-more-info-dialog>
+    // element exists, there is nothing to anchor to.
+    if (!hasOpenMoreInfo()) return null;
+
+    // Anchor to the visible dialog surface that hosts the more-info content. On
+    // desktop that's the centered <dialog class="dialog open">; on mobile HA
+    // renders it as <dialog class="drawer bottom open">. Prefer the dialog
+    // element that is currently open, largest, and lowest on screen.
     const candidates = [];
     walk(document.body, (el) => {
+      if ((el.localName || "").toLowerCase() !== "dialog") return null;
       const rect = rectOf(el);
       if (!rect || rect.width < 180 || rect.height < 120) return null;
-
-      const name = (el.localName || "").toLowerCase();
       const cls = String(el.className || "").toLowerCase();
-      const role = (el.getAttribute?.("role") || "").toLowerCase();
-      const isSurface = cls.includes("dialog__surface") || cls.includes("mdc-dialog__surface") || role === "dialog";
-      const isMoreInfo = name.includes("more-info");
-      const isDialog = name.includes("ha-dialog") || name.includes("mwc-dialog") || name.includes("dialog");
-
-      if (isSurface || isDialog) {
-        candidates.push({
-          el,
-          rect,
-          score: (isSurface ? 3 : 0) + (isDialog ? 2 : 0) + (isMoreInfo ? 1 : 0),
-          area: rect.width * rect.height
-        });
-      }
+      const isOpen = cls.includes("open");
+      candidates.push({ el, rect, isOpen, area: rect.width * rect.height, top: rect.top });
       return null;
     });
 
-    candidates.sort((a, b) => b.score - a.score || b.area - a.area);
+    candidates.sort(
+      (a, b) =>
+        Number(b.isOpen) - Number(a.isOpen) ||
+        b.area - a.area
+    );
     return candidates[0] || null;
   };
 
@@ -375,7 +384,14 @@
   const render = () => {
     const hass = getHass();
     const popup = findPopup();
-    if (!hass || !popup) return removeBadges(null);
+    // If there's no actual more-info dialog open, forget the last entity and
+    // remove any badge. This prevents the badge from leaking into the drawer /
+    // sidebar on mobile when the more-info dialog closes but an interval tick
+    // still runs.
+    if (!hass || !popup) {
+      window[STATE_KEY] = null;
+      return removeBadges(null);
+    }
 
     const entityId = window[STATE_KEY];
     if (!isPowerTargetEntity(entityId)) return removeBadges(null);
