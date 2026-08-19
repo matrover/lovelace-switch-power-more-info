@@ -1,5 +1,5 @@
 (() => {
-  const VERSION = "0.3.7";
+  const VERSION = "0.3.8";
   const BADGE_ID = "switch-power-more-info-badge";
   const INTERVAL_KEY = "__switchPowerMoreInfoInterval";
   const STATE_KEY = "__switchPowerMoreInfoEntity";
@@ -8,6 +8,14 @@
   const BADGE_GAP = 8;
   const MAX_CONTROL_SHIFT = 56;
   let lastOpenAt = 0;
+  let lastTargetAt = 0;
+  // Allow the more-info dialog to finish its mount/open animation before giving
+  // up. On the FIRST open, HA mounts the dialog and grows it from a small height
+  // to full size (measured ~93px -> ~533px). During that window findPopup()
+  // rejects the undersized dialog, and nulling STATE_KEY right then would make
+  // the badge never appear until a second open. So keep the entity for a short
+  // grace window after the event before deciding the dialog truly closed.
+  const MOUNT_GRACE_MS = 900;
 
   const language = (navigator.language || "en").toLowerCase();
   const label = language.startsWith("nl") ? "Stroom" : "Power";
@@ -387,8 +395,13 @@
     // If there's no actual more-info dialog open, forget the last entity and
     // remove any badge. This prevents the badge from leaking into the drawer /
     // sidebar on mobile when the more-info dialog closes but an interval tick
-    // still runs.
+    // still runs. Exception: if a more-info event for a power target just fired
+    // (within the mount grace window), the dialog may still be animating in on
+    // its FIRST open — don't clobber STATE_KEY yet, wait for it to finish.
     if (!hass || !popup) {
+      if (window[STATE_KEY] && Date.now() - lastTargetAt < MOUNT_GRACE_MS) {
+        return removeBadges(null);
+      }
       window[STATE_KEY] = null;
       return removeBadges(null);
     }
@@ -415,6 +428,7 @@
     const id = event.detail?.entityId || event.detail?.entity_id || null;
     if (isPowerTargetEntity(id)) {
       window[STATE_KEY] = id;
+      lastTargetAt = Date.now();
     } else if (id) {
       window[STATE_KEY] = null;
       removeBadges(null);
