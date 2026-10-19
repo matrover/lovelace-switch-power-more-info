@@ -112,12 +112,38 @@ The plugin also accepts sensors with:
 - unit `W`
 - unit `kW`
 
+### Multi-channel / multi-output devices
+
+A switch that is one output of a multi-output device (a 2-gang plug, an energy
+meter with several measurement channels) is matched to its own measurement:
+
+```text
+sensor.<entity_id_without_domain>_power_l1   ->  switch.<device>_l1
+sensor.<entity_id_without_domain>_power_l2   ->  switch.<device>_l2
+```
+
+The trailing channel token is recognised for `_l1`, `_s2`, `_ch3`, `_out1`,
+`_gang2`, `_relay1` and `_sw1`. Matching runs through the Home Assistant device
+registry, so it also works when the switch or the sensor was renamed (for example
+when one outlet of the same plug belongs to another room). The badge then shows
+which output it belongs to, e.g. `Stroom L1`.
+
+An entity that opens the device as a whole (no channel of its own) shows the sum
+of its output channels, labelled `Stroom L1+L2`. Only sensors that differ by
+channel token are ever combined, so a device with many unrelated power sensors
+(such as an inverter) is never added up.
+
+Entities in the `config` or `diagnostic` category (child lock, time period,
+network indicator) never get a badge: they belong to the device but do not
+consume power.
+
 Fallback matching is intentionally strict. It can match by entity prefix, useful device codes such as `NC24`, or a meaningful friendly-name prefix. It avoids broad substring matches, so names like `room` no longer accidentally match unrelated sensors like `stroomverbruik`.
 
 ## Supported Use Cases
 
 - Smart plug more-info dialogs with live wattage.
 - Zigbee, Z-Wave, Shelly, Tuya, ESPHome, and MQTT power plugs.
+- Multi-output devices: the correct per-output measurement is shown (2-gang plugs, dual energy meters).
 - Lights or fans with separate power sensors.
 - Appliance monitoring for washing machines, dryers, ovens, fridges, pumps, chargers, and media equipment.
 - Home Assistant dashboards where existing cards already open more-info dialogs.

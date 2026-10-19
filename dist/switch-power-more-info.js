@@ -1,5 +1,5 @@
 (() => {
-  const VERSION = "0.3.8";
+  const VERSION = "0.4.0";
   const BADGE_ID = "switch-power-more-info-badge";
   const INTERVAL_KEY = "__switchPowerMoreInfoInterval";
   const STATE_KEY = "__switchPowerMoreInfoEntity";
@@ -243,46 +243,216 @@
     return prefixWords.length > 0 && prefixWords.every((word, index) => words[index] === word);
   };
 
-  const pickPowerSensor = (hass, entityState) => {
-    const base = entityState.entity_id.replace(/^[^.]+\./, "");
-    const preferred = [
-      `sensor.${base}_electric_consumption_w`,
-      `sensor.${base}_power`,
-      `sensor.${base}_active_power`,
-      `sensor.${base}_instantaneous_power`,
-      `sensor.${base}_power_2`
-    ];
+  // A switched entity can be one output of a multi-channel device, e.g.
+  // switch.<plug>_l1 with sensors sensor.<plug>_power_l1 and _power_l2. Split the
+  // trailing channel token (l1, ch2, out1, ...) off the entity base so the right
+  // measurement can be matched.
+  const CHANNEL_TOKEN = /^(?:l|ch|out|relay|gang|sw|s)(\d+)$/;
 
-    for (const id of preferred) {
-      if (isPowerSensor(hass.states[id])) return hass.states[id];
+  const channelTokenOf = (value) => {
+    const token = String(value || "").split("_").pop().toLowerCase();
+    return CHANNEL_TOKEN.test(token) ? token : null;
+  };
+
+  const splitChannel = (base) => {
+    const token = channelTokenOf(base);
+    if (!token) return { root: base, channel: null };
+    return { root: String(base).slice(0, -(token.length + 1)), channel: token };
+  };
+
+  // Frontend registry access (hass.entities). Cached per registry object because
+  // render() runs on a 250ms interval.
+  let registryRef = null;
+  const deviceSensorCache = new Map();
+
+  const registryEntry = (hass, entityId) => {
+    const registry = hass.entities || {};
+    if (registry[entityId]) return registry[entityId];
+    const needle = String(entityId || "").toLowerCase();
+    const key = Object.keys(registry).find((candidate) => candidate.toLowerCase() === needle);
+    return key ? registry[key] : null;
+  };
+
+  const deviceSensorIds = (hass, entityId) => {
+    const registry = hass.entities;
+    if (!registry) return [];
+    if (registry !== registryRef) {
+      registryRef = registry;
+      deviceSensorCache.clear();
+    }
+    if (deviceSensorCache.has(entityId)) return deviceSensorCache.get(entityId);
+
+    const deviceId = registryEntry(hass, entityId)?.device_id;
+    // Frontend registry entries normally carry entity_id; the map key is used as a
+    // fallback so the lookup works either way.
+    const ids = deviceId
+      ? Object.entries(registry)
+          .filter(
+            ([id, entry]) =>
+              entry?.device_id === deviceId &&
+              !entry.disabled_by &&
+              String(entry.entity_id || id).startsWith("sensor.")
+          )
+          .map(([id, entry]) => entry.entity_id || id)
+      : [];
+
+    deviceSensorCache.set(entityId, ids);
+    return ids;
+  };
+
+  const powerStatesOf = (hass, ids) =>
+    ids.map((id) => hass.states[id]).filter((state) => isPowerSensor(state));
+
+  const stripChannelToken = (entityId) => {
+    const token = channelTokenOf(entityId);
+    return token ? entityId.slice(0, -(token.length + 1)) : entityId;
+  };
+
+  // Words that say nothing about which device is meant (every power sensor has
+  // them), so they must never be the reason to accept a sensor. A word carrying
+  // digits is a device code (sh06, k01, nc9) and weighs extra.
+  const GENERIC_WORDS = new Set([
+    "sensor",
+    "power",
+    "energy",
+    "energie",
+    "verbruik",
+    "consumption",
+    "electric",
+    "electrical",
+    "plug",
+    "stekker",
+    "socket",
+    "meter",
+    "device",
+    "apparaat",
+    "watt",
+    "w",
+    "kw",
+    "kwh"
+  ]);
+
+  const isCodeWord = (word) => word.length >= 3 && /\d/.test(word);
+
+  const overlapScore = (left, right) => {
+    const words = new Set(wordsOf(left).filter((word) => !GENERIC_WORDS.has(word)));
+    return wordsOf(right)
+      .filter((word) => words.has(word))
+      .reduce((score, word) => score + (isCodeWord(word) ? 3 : 1), 0);
+  };
+
+  // Sensors that differ only by their channel token (…_power_l1 / …_power_l2)
+  // belong to the same multi-channel measurement. Only a group that shares
+  // meaningful words with the opened entity qualifies, so a device carrying
+  // several channel pairs (and inverters with dozens of unrelated power sensors)
+  // never gets mixed up. Ties are broken deterministically.
+  const bestChannelGroup = (states, owner) => {
+    const groups = new Map();
+    for (const state of states) {
+      const key = stripChannelToken(state.entity_id);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(state);
+    }
+
+    const candidates = [...groups.entries()]
+      .filter(([, group]) => group.length > 1)
+      .map(([key, group]) => ({ key, group, score: overlapScore(key, owner) }))
+      .filter((candidate) => candidate.score > 0)
+      .sort(
+        (a, b) =>
+          b.score - a.score || b.group.length - a.group.length || a.key.localeCompare(b.key)
+      );
+
+    return candidates.length ? candidates[0].group : null;
+  };
+
+  // Configuration / diagnostic entities (child lock, time period, network
+  // indicator, ...) belong to a device with a power sensor, but they are not the
+  // thing that consumes power. Never put a badge on those.
+  const isConfigEntity = (hass, entityId) => {
+    const category = registryEntry(hass, entityId)?.entity_category;
+    return category === "config" || category === "diagnostic";
+  };
+
+  const pickPowerSensors = (hass, entityState) => {
+    const base = entityState.entity_id.replace(/^[^.]+\./, "");
+    const { root, channel } = splitChannel(base);
+
+    const names = [
+      `${base}_electric_consumption_w`,
+      `${base}_power`,
+      `${base}_active_power`,
+      `${base}_instantaneous_power`,
+      `${base}_power_2`
+    ];
+    if (channel) {
+      names.unshift(
+        `${root}_power_${channel}`,
+        `${root}_${channel}_power`,
+        `${root}_${channel}_electric_consumption_w`
+      );
+    }
+
+    for (const name of names) {
+      if (isPowerSensor(hass.states[`sensor.${name}`])) return [hass.states[`sensor.${name}`]];
+    }
+
+    // Same device: a multi-channel device exposes one measurement per output
+    // (…_power_l1 / …_power_l2). Resolving through the device registry also
+    // matches a renamed entity (a plug serving two rooms, one gang renamed to
+    // another area). A channel entity only accepts a sensor whose stripped id
+    // shares words with the entity, so a foreign channel sensor on the same
+    // device is never shown as this entity's power.
+    const deviceStates = powerStatesOf(hass, deviceSensorIds(hass, entityState.entity_id));
+    if (channel) {
+      const own = deviceStates
+        .filter((state) => channelTokenOf(state.entity_id) === channel)
+        .map((state) => ({ state, score: overlapScore(stripChannelToken(state.entity_id), base) }))
+        .filter((candidate) => candidate.score > 0)
+        .sort((a, b) => b.score - a.score || a.state.entity_id.localeCompare(b.state.entity_id));
+      if (own.length) return [own[0].state];
+    } else {
+      const grouped = bestChannelGroup(deviceStates, base);
+      if (grouped) return grouped;
     }
 
     const sensors = Object.values(hass.states).filter((state) =>
       state.entity_id.startsWith("sensor.") && isPowerSensor(state)
     );
 
-    const prefixed = sensors.find((state) => state.entity_id.startsWith(`sensor.${base}_`));
-    if (prefixed) return prefixed;
+    const prefixed = sensors.filter((state) => state.entity_id.startsWith(`sensor.${base}_`));
+    if (!channel && prefixed.length > 1) {
+      const grouped = bestChannelGroup(prefixed, base);
+      if (grouped) return grouped;
+    }
+    if (prefixed.length) return [prefixed[0]];
 
     const code = base.split("_").slice(-1)[0]?.toLowerCase();
     const entityNameWords = wordsOf(entityState.attributes?.friendly_name);
     const canMatchName = entityNameWords.length >= 3 || entityNameWords.some(isUsefulCode);
 
-    return sensors.find((state) => {
+    const named = sensors.find((state) => {
       const name = String(state.attributes?.friendly_name || "").toLowerCase();
       return (isUsefulCode(code) && hasWord(name, code)) || (canMatchName && startsWithWords(name, entityNameWords));
-    }) || null;
+    });
+    return named ? [named] : [];
   };
 
-  const formatPower = (state) => {
+  const powerWatts = (state) => {
     const value = Number(state?.state);
     if (!Number.isFinite(value)) return null;
-
-    const watts = String(state.attributes?.unit_of_measurement || "W").toLowerCase() === "kw"
+    return String(state.attributes?.unit_of_measurement || "W").toLowerCase() === "kw"
       ? value * 1000
       : value;
+  };
 
-    return `${Math.abs(watts) >= 100 ? Math.round(watts) : watts.toFixed(1).replace(".0", "")} W`;
+  const formatWatts = (watts) =>
+    `${Math.abs(watts) >= 100 ? Math.round(watts) : watts.toFixed(1).replace(".0", "")} W`;
+
+  const formatPower = (states) => {
+    const values = (states || []).map(powerWatts).filter((value) => value !== null);
+    if (!values.length) return null;
+    return formatWatts(values.reduce((total, value) => total + value, 0));
   };
 
   const dispatchMoreInfo = (target, entityId) => {
@@ -410,17 +580,35 @@
     if (!isPowerTargetEntity(entityId)) return removeBadges(null);
 
     window[STATE_KEY] = entityId;
+
+    // Child lock / time period / indicator switches live on the same device as a
+    // power sensor but consume nothing themselves.
+    if (isConfigEntity(hass, entityId)) return removeBadges(null);
+
     const entityState = hass.states[entityId];
-    const powerSensor = entityState ? pickPowerSensor(hass, entityState) : null;
-    const text = powerSensor ? formatPower(powerSensor) : null;
+    const powerSensors = entityState ? pickPowerSensors(hass, entityState) : [];
+    const text = formatPower(powerSensors);
     if (!text) return removeBadges(null);
 
+    // Show which output the value belongs to when the entity is one channel of a
+    // multi-channel device (e.g. "Stroom L1"), or every channel when the total is
+    // summed ("Stroom L1+L2"). Only channels that actually reported a value count,
+    // so "Stroom L1" is not claimed next to a sum that omits L1.
+    const channels = powerSensors
+      .filter((state) => powerWatts(state) !== null)
+      .map((state) => channelTokenOf(state.entity_id))
+      .filter(Boolean);
     const badge = getBadge(popup.el);
     styleBadge(badge, popup.el);
-    badge.querySelector(".label").textContent = label;
+    badge.querySelector(".label").textContent = `${label}${
+      channels.length ? ` ${channels.map((channel) => channel.toUpperCase()).join("+")}` : ""
+    }`;
     badge.querySelector(".value").textContent = text;
-    badge.dataset.powerEntity = powerSensor.entity_id;
-    badge.title = `Open ${powerSensor.entity_id}`;
+    badge.dataset.powerEntity = powerSensors.find((state) => powerWatts(state) !== null).entity_id;
+    badge.title = powerSensors
+      .filter((state) => powerWatts(state) !== null)
+      .map((state) => state.entity_id)
+      .join("\n");
     badge.hidden = false;
   };
 
