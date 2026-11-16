@@ -1,5 +1,5 @@
 (() => {
-  const VERSION = "0.5.1";
+  const VERSION = "0.5.2";
   const BADGE_ID = "switch-power-more-info-badge";
   const INTERVAL_KEY = "__switchPowerMoreInfoInterval";
   const STATE_KEY = "__switchPowerMoreInfoEntity";
@@ -498,10 +498,15 @@
     "power"
   ]);
 
+  // The frontend entity registry carries its own field names, not the backend's:
+  // the display name sits in `name` (only user renames in `original_name`), the
+  // category in `entity_category` and platform-provided flags in `capabilities`.
+  const frontendOriginalName = (entry) => entry?.original_name || entry?.name || "";
+
   const isSettingEntity = (hass, entityId) => {
     const entry = registryEntry(hass, entityId);
     if (!entry) return false;
-    const original = String(entry.original_name || "").toLowerCase();
+    const original = String(frontendOriginalName(entry) || "").toLowerCase();
     if (!original) return false;
     return wordsOf(original).some((word) => SETTING_WORDS.has(word));
   };
@@ -614,7 +619,7 @@
     // device itself ("staande lamp" → lamp).
     // Use original_name: a user-renamed entity ("Keuken Oven Rechts") otherwise
     // hides the integration's own word ("fast pre-heat") that identifies a setting.
-    const entityOriginalStrong = strongWords(registryEntry(hass, entityState.entity_id)?.original_name);
+    const entityOriginalStrong = strongWords(frontendOriginalName(registryEntry(hass, entityState.entity_id)));
     const entityInsideIdentifiers = entityOriginalStrong.some(
       (word) => !PLACARD_WORDS.has(word) && !CLASS_WORDS.has(word)
     );
