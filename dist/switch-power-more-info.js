@@ -1,5 +1,5 @@
 (() => {
-  const VERSION = "0.5.0";
+  const VERSION = "0.5.1";
   const BADGE_ID = "switch-power-more-info-badge";
   const INTERVAL_KEY = "__switchPowerMoreInfoInterval";
   const STATE_KEY = "__switchPowerMoreInfoEntity";
@@ -585,6 +585,15 @@
     // id-prefix and name comparisons against them are meaningless.
     const plugLikeId = !platformBound;
 
+    // `switch_as_x` presents a switch as a light (or fan) without inheriting its
+    // device_class *in the state machine*; backend attributes do carry it. A
+    // light whose backing switch is a plain switch is therefore a plug, not a
+    // dimmer, and may be matched to the plug's measurement.
+    const plugBacked =
+      entityDomain(entityState.entity_id) !== "switch" &&
+      Boolean(hass.states[`switch.${base}`]) &&
+      !hass.states[`switch.${base}`].attributes?.device_class;
+
     const sensors = Object.values(hass.states).filter((state) =>
       state.entity_id.startsWith("sensor.") && isPowerSensor(state)
     );
@@ -610,7 +619,7 @@
       (word) => !PLACARD_WORDS.has(word) && !CLASS_WORDS.has(word)
     );
 
-    if (entityStrong.length && plugLikeId) {
+    if (entityStrong.length && (plugLikeId || plugBacked)) {
       // Reversed name match: the measurement is named after the device while the
       // entity is named after the room ("Eetkamer Staande Lamp" ↔ "Staande Lamp").
       // Accept only when the sensor name is fully covered by the entity name (a
@@ -653,7 +662,7 @@
       if (scored.length) return [scored[0].state];
     }
 
-    const named = (plugLikeId ? sensors : []).find((state) => {
+    const named = (plugLikeId || plugBacked ? sensors : []).find((state) => {
       const name = String(state.attributes?.friendly_name || "").toLowerCase();
       return (isUsefulCode(code) && hasWord(name, code)) || (canMatchName && startsWithWords(name, entityNameWords));
     });

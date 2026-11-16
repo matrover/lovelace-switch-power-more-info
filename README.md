@@ -141,6 +141,13 @@ members report and labels it plainly, e.g. `Stroom 116 W`. Members without a
 measurement are simply skipped. Clicking the badge opens the biggest consumer
 among them.
 
+### Switches shown as a light (`Switch as X`)
+
+When a plug is presented as a light or fan (HA's `Switch as X` helper), the state
+machine carries no `device_class` for it, while the underlying switch does. Such a
+light is a plug, so it is matched to the plug's measurement like any other plug.
+Dimmers, bulbs and lamp fixtures never are.
+
 ### Lights and fans
 
 Lights and fans are matched to a plug or clamp measurement by name as well as by
