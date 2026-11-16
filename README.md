@@ -133,9 +133,29 @@ of its output channels, labelled `Stroom L1+L2`. Only sensors that differ by
 channel token are ever combined, so a device with many unrelated power sensors
 (such as an inverter) is never added up.
 
+### Groups (light groups, fan groups)
+
+A group entity owns no sensor of its own. When the opened entity carries member
+entities (a Hue group, a `light`/`fan` group), the badge sums the power its
+members report and labels it plainly, e.g. `Stroom 116 W`. Members without a
+measurement are simply skipped. Clicking the badge opens the biggest consumer
+among them.
+
+### Lights and fans
+
+Lights and fans are matched to a plug or clamp measurement by name as well as by
+id, including the reverse case where the entity is named after the room and the
+plug after the device (`Eetkamer Staande Lamp` ↔ plug `Staande Lamp`). A match
+needs identifying words to overlap — room/place words (`keuken`, `schuur`) and
+class words (`lamp`, `fan`, `ledstrip`) can complete a match but never cause one.
+
 Entities in the `config` or `diagnostic` category (child lock, time period,
 network indicator) never get a badge: they belong to the device but do not
-consume power.
+consume power. The same goes for uncategorised settings other integrations
+expose as plain switches (a Tuya oven's `Child lock`, `Sabbath mode`,
+`Fast pre-heat`, its own `Power` switch) and for platform switches of an
+inverter, car charger or solar installation (`Solis S6 Modbus PV Shutdown`),
+which are settings rather than loads.
 
 Fallback matching is intentionally strict. It can match by entity prefix, useful device codes such as `NC24`, or a meaningful friendly-name prefix. It avoids broad substring matches, so names like `room` no longer accidentally match unrelated sensors like `stroomverbruik`.
 
@@ -144,14 +164,15 @@ Fallback matching is intentionally strict. It can match by entity prefix, useful
 - Smart plug more-info dialogs with live wattage.
 - Zigbee, Z-Wave, Shelly, Tuya, ESPHome, and MQTT power plugs.
 - Multi-output devices: the correct per-output measurement is shown (2-gang plugs, dual energy meters).
-- Lights or fans with separate power sensors.
+- Lights or fans with separate power sensors, including a lamp that is powered by a plug on another device.
+- Light groups, fan groups and switch groups: the badge shows the summed power of the members that measure.
 - Appliance monitoring for washing machines, dryers, ovens, fridges, pumps, chargers, and media equipment.
 - Home Assistant dashboards where existing cards already open more-info dialogs.
 
 ## Limitations
 
 - This is a frontend-only plugin. It does not create sensors, helpers, automations, or integrations.
-- The badge only appears when a matching power sensor already exists.
+- The badge only appears when a matching power sensor already exists (for a group: on at least one member).
 - HACS and Home Assistant may require a browser refresh before updated frontend resources are loaded.
 
 ## Troubleshooting

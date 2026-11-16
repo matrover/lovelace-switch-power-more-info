@@ -1,5 +1,5 @@
 (() => {
-  const VERSION = "0.4.0";
+  const VERSION = "0.5.0";
   const BADGE_ID = "switch-power-more-info-badge";
   const INTERVAL_KEY = "__switchPowerMoreInfoInterval";
   const STATE_KEY = "__switchPowerMoreInfoEntity";
@@ -134,7 +134,7 @@
     });
   };
 
-  const reserveBadgeSpace = (popupEl, badgeEl) => {
+  const reserveBadgeSpace = (popupEl, badgeEl, isGroup = false) => {
     const popupRect = rectOf(popupEl);
     if (!popupRect) return;
 
@@ -172,7 +172,7 @@
         rect.height <= popupRect.height * 0.9 &&
         Math.abs(centerX - popupCenterX) <= Math.max(90, popupRect.width * 0.25);
 
-      if (el.id !== BADGE_ID && insidePopup && (isControl || centeredVerticalControl) && rect.bottom > reservedTop) {
+      if (el.id !== BADGE_ID && insidePopup && !isGroup && (isControl || centeredVerticalControl) && rect.bottom > reservedTop) {
         controls.push({
           el,
           rect,
@@ -185,7 +185,10 @@
 
     controls.sort((a, b) => b.score - a.score || b.rect.bottom - a.rect.bottom || b.area - a.area);
     const target = controls[0];
-    if (!target) return;
+    // A group dialog has no single control that the badge could overlay: the
+    // member list runs to the dialog bottom. Shifting the badge up would push it
+    // into the list, so the groups' own layout keeps the badge at the bottom.
+    if (isGroup || !target) return;
 
     const reserve = Math.min(MAX_CONTROL_SHIFT, Math.ceil(target.rect.bottom - reservedTop));
     if (reserve < 6) return;
@@ -303,6 +306,46 @@
   const powerStatesOf = (hass, ids) =>
     ids.map((id) => hass.states[id]).filter((state) => isPowerSensor(state));
 
+  // HA groups (light groups, fan groups) carry member entity ids in their
+  // attributes. Power sensors normally live on the members (a Hue group has no
+  // plug), so group power has to be resolved through the members.
+  const GROUP_LIMIT = 60;
+
+  const memberIdsOf = (state) => {
+    const members = state?.attributes?.entity_id;
+    if (!Array.isArray(members) || members.length === 0 || members.length > GROUP_LIMIT) return [];
+    return members.filter((id) => typeof id === "string" && id.includes("."));
+  };
+
+  const isGroupEntity = (hass, entityId) => {
+    const state = hass.states[entityId];
+    if (!state) return false;
+    const domain = entityDomain(entityId);
+    if (domain !== "light" && domain !== "switch" && domain !== "fan") return false;
+    return memberIdsOf(state).length > 0;
+  };
+
+  // Every power value the members of a group make available, each listed once.
+  const memberPowerSensors = (hass, entityState, depth = 0) => {
+    const out = [];
+    const seen = new Set();
+    const push = (state) => {
+      if (!state || seen.has(state.entity_id)) return;
+      seen.add(state.entity_id);
+      out.push(state);
+    };
+
+    for (const memberId of memberIdsOf(entityState)) {
+      const memberState = hass.states[memberId];
+      if (!memberState) continue;
+      for (const state of pickPowerSensors(hass, memberState)) push(state);
+      if (depth < 1 && memberIdsOf(memberState).length) {
+        for (const state of memberPowerSensors(hass, memberState, depth + 1)) push(state);
+      }
+    }
+    return out;
+  };
+
   const stripChannelToken = (entityId) => {
     const token = channelTokenOf(entityId);
     return token ? entityId.slice(0, -(token.length + 1)) : entityId;
@@ -332,7 +375,79 @@
     "kwh"
   ]);
 
+  // Product/class words that only say what kind of device it is. They may support
+  // a name match ("Staande lamp" ↔ "Staande lamp stekker - NC12") but never cause
+  // one on their own, otherwise every lamp would match the first lamp plug.
+  const CLASS_WORDS = new Set([
+    "lamp",
+    "lampen",
+    "light",
+    "lights",
+    "licht",
+    "spot",
+    "spots",
+    "verlichting",
+    "led",
+    "ledstrip",
+    "strip",
+    "fan",
+    "fans",
+    "ventilator",
+    "afzuiging",
+    "afzuigkap",
+    "plafond",
+    "vloer",
+    "tafel",
+    "wand",
+    "inbouw",
+    "buiten",
+    "buitenlamp",
+    "buitenlampen",
+    "binnen",
+    "ruimte",
+    "groep"
+  ]);
+
+  // Placard/category words that show up on both lamps and their plugs. They may
+  // complete a match ("Staande Lamp" ↔ "Staande Lamp Stekker NC12") but may never
+  // be the reason for one: without this, "Keuken Aanrecht Ledstrip" would match
+  // the plug "Keuken Aanrecht Stekkerblok" through the shared "aanrecht".
+  const PLACARD_WORDS = new Set([
+    "eetkamer",
+    "woonkamer",
+    "keuken",
+    "slaapkamer",
+    "badkamer",
+    "gastenbadkamer",
+    "overloop",
+    "gang",
+    "hal",
+    "toilet",
+    "bureau",
+    "schuur",
+    "garage",
+    "kelder",
+    "tuin",
+    "huis",
+    "babykamer",
+    "werkkamer",
+    "bijkeuken",
+    "aanrecht",
+    "staand",
+    "staande",
+    "hangend",
+    "hangende"
+  ]);
+
   const isCodeWord = (word) => word.length >= 3 && /\d/.test(word);
+
+  const meaningfulWords = (value) =>
+    [...new Set(wordsOf(value))].filter((word) => !GENERIC_WORDS.has(word));
+
+  // Words that identify a device: no generic power words, no device-class words,
+  // and at least two characters (so "de"/"en" never matches anything).
+  const strongWords = (value) =>
+    meaningfulWords(value).filter((word) => word.length >= 2 && !CLASS_WORDS.has(word));
 
   const overlapScore = (left, right) => {
     const words = new Set(wordsOf(left).filter((word) => !GENERIC_WORDS.has(word)));
@@ -369,12 +484,37 @@
   // Configuration / diagnostic entities (child lock, time period, network
   // indicator, ...) belong to a device with a power sensor, but they are not the
   // thing that consumes power. Never put a badge on those.
+  //
+  // Some integrations leave such switches uncategorised (a Tuya oven exposes
+  // "Child lock", "Sabbath mode", "Fast pre-heat" and even the appliance's own
+  // "Power" switch as plain switches). Those are caught by their registry name.
+  const SETTING_WORDS = new Set([
+    "child",
+    "lock",
+    "sabbath",
+    "preheat",
+    "heat",
+    "correctie",
+    "power"
+  ]);
+
+  const isSettingEntity = (hass, entityId) => {
+    const entry = registryEntry(hass, entityId);
+    if (!entry) return false;
+    const original = String(entry.original_name || "").toLowerCase();
+    if (!original) return false;
+    return wordsOf(original).some((word) => SETTING_WORDS.has(word));
+  };
+
   const isConfigEntity = (hass, entityId) => {
     const category = registryEntry(hass, entityId)?.entity_category;
-    return category === "config" || category === "diagnostic";
+    if (category === "config" || category === "diagnostic") return true;
+    return isSettingEntity(hass, entityId);
   };
 
   const pickPowerSensors = (hass, entityState) => {
+    if (isGroupEntity(hass, entityState.entity_id)) return memberPowerSensors(hass, entityState);
+
     const base = entityState.entity_id.replace(/^[^.]+\./, "");
     const { root, channel } = splitChannel(base);
 
@@ -403,6 +543,12 @@
     // another area). A channel entity only accepts a sensor whose stripped id
     // shares words with the entity, so a foreign channel sensor on the same
     // device is never shown as this entity's power.
+    //
+    // Without a channel token there is no evidence which of several measurements
+    // on the device belongs to this very entity (an inverter with a dozen power
+    // sensors, a plug whose gang was renamed), so the device fallback only
+    // applies when the entity itself carries the channel. Other cases are left
+    // to the id-prefix and name matching below, which compare against the entity.
     const deviceStates = powerStatesOf(hass, deviceSensorIds(hass, entityState.entity_id));
     if (channel) {
       const own = deviceStates
@@ -411,16 +557,39 @@
         .filter((candidate) => candidate.score > 0)
         .sort((a, b) => b.score - a.score || a.state.entity_id.localeCompare(b.state.entity_id));
       if (own.length) return [own[0].state];
-    } else {
-      const grouped = bestChannelGroup(deviceStates, base);
-      if (grouped) return grouped;
     }
+
+    // Configuration and diagnostic entities (child lock, sabbath mode, an
+    // inverter's protection switches) belong to a device that does measure
+    // power, but they are not the thing that consumes it. Their own id and name
+    // ("oven_power", "PV shutdown") describe a setting, not a device, so the
+    // Name-based fallbacks are skipped for them.
+    if (isConfigEntity(hass, entityState.entity_id)) return [];
+
+    // Switches of an inverter, heat pump, car charger or solar installation are
+    // settings too: they carry no device name of their own, only the platform's
+    // ("Solis S6 Modbus ..."), so any name overlap with a measurement is
+    // coincidence (a generator period switch is not a 6 kW load). Such entities
+    // therefore never borrow a measurement by name; only their own explicit
+    // channel or an exact `<base>_power` sensor can serve them.
+    const PLATFORM_WORDS = ["modbus", "solis", "unifi", "tcp", "hub", "bridge", "controller", "inverter", "omvormer"];
+
+    // A plug usually carries its own device name in the id ("…_stekker_nc3"),
+    // while a plant switch is named after a platform node ("solis_s6_modbus_…").
+    // The id-prefix lookup is only safe for the first group.
+    const platformBound =
+      entityDomain(entityState.entity_id) === "switch" &&
+      (wordsOf(base).some((word) => PLATFORM_WORDS.includes(word)) ||
+        wordsOf(entityState.attributes?.friendly_name).some((word) => PLATFORM_WORDS.includes(word)));
+    // Platform switches are named after a node, not a device or a room, so
+    // id-prefix and name comparisons against them are meaningless.
+    const plugLikeId = !platformBound;
 
     const sensors = Object.values(hass.states).filter((state) =>
       state.entity_id.startsWith("sensor.") && isPowerSensor(state)
     );
 
-    const prefixed = sensors.filter((state) => state.entity_id.startsWith(`sensor.${base}_`));
+    const prefixed = plugLikeId ? sensors.filter((state) => state.entity_id.startsWith(`sensor.${base}_`)) : [];
     if (!channel && prefixed.length > 1) {
       const grouped = bestChannelGroup(prefixed, base);
       if (grouped) return grouped;
@@ -430,13 +599,71 @@
     const code = base.split("_").slice(-1)[0]?.toLowerCase();
     const entityNameWords = wordsOf(entityState.attributes?.friendly_name);
     const canMatchName = entityNameWords.length >= 3 || entityNameWords.some(isUsefulCode);
+    const entityName = entityState.attributes?.friendly_name;
+    const entityStrong = strongWords(entityName);
+    // Same words, but without placard/category words: what is left names the
+    // device itself ("staande lamp" → lamp).
+    // Use original_name: a user-renamed entity ("Keuken Oven Rechts") otherwise
+    // hides the integration's own word ("fast pre-heat") that identifies a setting.
+    const entityOriginalStrong = strongWords(registryEntry(hass, entityState.entity_id)?.original_name);
+    const entityInsideIdentifiers = entityOriginalStrong.some(
+      (word) => !PLACARD_WORDS.has(word) && !CLASS_WORDS.has(word)
+    );
 
-    const named = sensors.find((state) => {
+    if (entityStrong.length && plugLikeId) {
+      // Reversed name match: the measurement is named after the device while the
+      // entity is named after the room ("Eetkamer Staande Lamp" ↔ "Staande Lamp").
+      // Accept only when the sensor name is fully covered by the entity name (a
+      // measurement of exactly this device) or the entity name is fully covered
+      // by the sensor name (a device named after a narrower thing, e.g. my
+      // "Woonkamer Lamp" is the plug "Lamp Woonkamer NC9"). A shared room word
+      // alone ("Woonkamer ..." on two different devices) never matches, and a
+      // single shared non-code word is not enough either.
+      const scored = sensors
+        .map((state) => {
+          const sensorName = state.attributes?.friendly_name;
+          const sensorStrong = strongWords(sensorName);
+          const shared = [...entityStrong, ...entityOriginalStrong].filter((word, index, all) =>
+            all.indexOf(word) === index && !PLACARD_WORDS.has(word) && sensorStrong.includes(word)
+          );
+          // Words like "sensor"/"power" never end up in strongWords, so these two
+          // checks compare identifying words only: "Oven Links Child lock" cannot
+          // borrow the power of "Oven Links" just because the room word fits.
+          const sensorInsideEntity = sensorStrong.length > 0 && sensorStrong.every((word) => entityStrong.includes(word));
+          const entityInsideSensor =
+            plugLikeId &&
+            entityInsideIdentifiers &&
+            entityStrong.every((word) => sensorStrong.includes(word)) &&
+            entityOriginalStrong.every((word) => sensorStrong.includes(word));
+          return { state, shared, sensorInsideEntity, entityInsideSensor, sensorStrong };
+        })
+        .filter(
+          (candidate) =>
+            candidate.shared.length > 0 &&
+            (candidate.sensorInsideEntity || candidate.entityInsideSensor) &&
+            (candidate.shared.length > 1 || candidate.shared.some(isCodeWord))
+        )
+        .sort(
+          (a, b) =>
+            Number(b.sensorInsideEntity) - Number(a.sensorInsideEntity) ||
+            b.shared.length - a.shared.length ||
+            a.sensorStrong.length - b.sensorStrong.length ||
+            a.state.entity_id.localeCompare(b.state.entity_id)
+        );
+      if (scored.length) return [scored[0].state];
+    }
+
+    const named = (plugLikeId ? sensors : []).find((state) => {
       const name = String(state.attributes?.friendly_name || "").toLowerCase();
       return (isUsefulCode(code) && hasWord(name, code)) || (canMatchName && startsWithWords(name, entityNameWords));
     });
     return named ? [named] : [];
   };
+
+  // Power readings in the HA-to-meanings sense: a device_class of `power` or a
+  // W/kW unit. `hasPowerSensor` tells whether the entity (or, for a group, any of
+  // its members) has a measurement to show.
+  const hasPowerSensor = (hass, entityState) => Boolean(pickPowerSensors(hass, entityState).length);
 
   const powerWatts = (state) => {
     const value = Number(state?.state);
@@ -522,7 +749,7 @@
     popupEl.style.overflow = "hidden";
   };
 
-  const styleBadge = (badge, popupEl) => {
+  const styleBadge = (badge, popupEl, isGroup = false) => {
     preparePopup(popupEl);
 
     Object.assign(badge.style, {
@@ -556,7 +783,7 @@
     });
 
     badge.dataset.version = VERSION;
-    reserveBadgeSpace(popupEl, badge);
+    reserveBadgeSpace(popupEl, badge, isGroup);
   };
 
   const render = () => {
@@ -586,29 +813,34 @@
     if (isConfigEntity(hass, entityId)) return removeBadges(null);
 
     const entityState = hass.states[entityId];
+    const group = isGroupEntity(hass, entityId);
     const powerSensors = entityState ? pickPowerSensors(hass, entityState) : [];
     const text = formatPower(powerSensors);
     if (!text) return removeBadges(null);
+
+    const reporting = powerSensors.filter((state) => powerWatts(state) !== null);
 
     // Show which output the value belongs to when the entity is one channel of a
     // multi-channel device (e.g. "Stroom L1"), or every channel when the total is
     // summed ("Stroom L1+L2"). Only channels that actually reported a value count,
     // so "Stroom L1" is not claimed next to a sum that omits L1.
-    const channels = powerSensors
-      .filter((state) => powerWatts(state) !== null)
+    const channels = reporting
       .map((state) => channelTokenOf(state.entity_id))
       .filter(Boolean);
     const badge = getBadge(popup.el);
-    styleBadge(badge, popup.el);
+    styleBadge(badge, popup.el, group);
+    // A group shows one summed value for all members; no channel suffix makes
+    // sense there (the members' sensors carry unrelated channel tokens).
     badge.querySelector(".label").textContent = `${label}${
-      channels.length ? ` ${channels.map((channel) => channel.toUpperCase()).join("+")}` : ""
+      !group && channels.length ? ` ${channels.map((channel) => channel.toUpperCase()).join("+")}` : ""
     }`;
     badge.querySelector(".value").textContent = text;
-    badge.dataset.powerEntity = powerSensors.find((state) => powerWatts(state) !== null).entity_id;
-    badge.title = powerSensors
-      .filter((state) => powerWatts(state) !== null)
-      .map((state) => state.entity_id)
-      .join("\n");
+    badge.dataset.powerEntity = group
+      ? reporting
+          .slice()
+          .sort((a, b) => Math.abs(powerWatts(b)) - Math.abs(powerWatts(a)) || a.entity_id.localeCompare(b.entity_id))[0].entity_id
+      : reporting[0].entity_id;
+    badge.title = reporting.map((state) => state.entity_id).join("\n");
     badge.hidden = false;
   };
 
